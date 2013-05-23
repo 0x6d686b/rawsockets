@@ -130,12 +130,6 @@ main(int argc, char **argv)
     struct icmp *icmp_hdr_in, *icmp_hdr_out;
     int ip_len, icmp_len, icmp_data_len;
 
-    /* hanoi variables */
-    u_int8_t N;
-    int sp = 0;
-    int move = 0, gmove = 0;
-    int proc, to, using, from;
-
     if ((sock_eth = socket(AF_INET, SOCK_PACKET, htons(ETH_P_ALL))) < 0) {
         perror("socket");
         exit(1);
