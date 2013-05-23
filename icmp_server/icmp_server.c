@@ -129,23 +129,38 @@ main(int argc, char **argv)
     char buf_in[MAX_MTU], buf_out[MAX_MTU];
     struct icmp *icmp_hdr_in, *icmp_hdr_out;
     int ip_len, icmp_len, icmp_data_len;
+    struct ifreq *ininfo;
 
     if ((sock_eth = socket(AF_INET, SOCK_PACKET, htons(ETH_P_ALL))) < 0) {
         perror("socket");
-        exit(1);
+        exit(EXIT_FAILURE);
+    }
+ 
+    /* get interface index */ 
+    memset(ifinfo, 0, sizeof(struct ifreq));
+    strncpy(ifinfo->ifr_name, "eth0", IFNAMSIZ); /* @FIXIT sorry, hardcoded */
+    if ( -1 == ioctl(sock_eth, SIOCGIFINDEX, ifinfo)) {
+      perror("can't get interface index");
+      exit(EXIT_FAILURE);
     }
 
-    if ((sock_icmp = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0) {
-        perror("socket");
-        exit(1);
+    /* bind socket to specific interface */
+    memset(sockinfo, 0, sizeof(*sockinfo));
+    sockinfo->sll_family = PF_PACKET;
+    sockinfo->sll_protocol = htons(ETH_P_ALL);
+    sockinfo->sll_ifindex = ifinfo->ifr_ifindex;
+    if (-1 == bind(sock, (struct sockaddr*)sockinfo, sizeof(*sockinfo))) {
+      switch (errno) {
+        case EACCES:
+        case EPERM:
+          perror("not enough privileges to bind socket (are you root?)");
+          exit(EXIT_FAILURE);
+        default:
+          perror("can't bind socket");
+          exit(EXIT_FAILURE);
+      }
     }
-
-//    if ((ret = setsockopt(sock_icmp, IPPROTO_IP, IP_HDRINCL, (char *)&one,
-//                     sizeof(one))) < 0) {
-//        perror("setsockopt");
-//        exit(1);
-//    }
-
+    
     eth_hdr_in  = (struct ether_header *)buf_in;
     eth_hdr_out  = (struct ether_header *)buf_out;
     ip_hdr_in   = (struct ip *)(buf_in + sizeof(struct ether_header));
