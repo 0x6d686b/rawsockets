@@ -92,8 +92,6 @@
 #define MAX_MTU 1500 /* random */
 
 unsigned short in_cksum(unsigned short *addr, int len);
-
-/* From Stevens, UNP2ev1 */
 unsigned short
 in_cksum(unsigned short *addr, int len)
 {
@@ -137,8 +135,6 @@ main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    
- 
     /* get interface index */ 
     ifinfo = malloc(sizeof(struct ifreq));
     memset(ifinfo, 0, sizeof(struct ifreq));
@@ -203,6 +199,7 @@ main(int argc, char **argv)
 
                 ip_hdr_out->ip_sum = in_cksum((unsigned short *)ip_hdr_out,
                                               ip_hdr_out->ip_hl);
+
                 printf("%d\t%d\n", ip_hdr_in->ip_sum, ip_hdr_out->ip_sum);
 
                 /* Prepare outgoing ICMP header. */
@@ -223,10 +220,6 @@ main(int argc, char **argv)
 
                 icmp_hdr_out->icmp_cksum =
                     in_cksum((unsigned short *)icmp_hdr_out, icmp_len);
-
-//                bzero(&dst, sizeof(dst));
-//                dst.sin_family = AF_INET;
-//                dst.sin_addr.s_addr = ip_hdr_out->ip_dst.s_addr;
 
                 ret = sendto(sock_eth, buf_out, ret, 0,
                                              (struct sockaddr *)&sockinfo,
