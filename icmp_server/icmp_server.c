@@ -1,72 +1,3 @@
-/*
- * The Towers Of Hanoi
- * ping (ICMP) implementation
- * Copyright (C) 2002 Amit Singh. All Rights Reserved.
- * http://hanoi.kernelthread.com
- *
- * Tested on RedHat Linux 8.0, kernel 2.4.18
- *
- * a) Compile the program by simply doing:
- *
- *      gcc -o hanoicmp hanoicmp.c
- *
- * b) Disable the "normal" ICMP echo response in the kernel by doing:
- *
- *      echo 1 > /proc/sys/net/ipv4/icmp_echo_ignore_all
- *
- *    Thereafter you should not be able to ping the host and get a response.
- *
- * c) Start hanoicmp, which would act as an (single threaded - not too useful
- *    for production use) ICMP server. You should be able to ping the host
- *    and get a response. You should certainly terminate hanoicmp and enable
- *    ICMP echo (if you want it) in /proc/sys.
- *
- * d) Now you can "ping" this host (either from localhost or a remote machine)
- *    and the ping should "work" normally. However, if you use the TOS (type
- *    of service) option of your ping command to pass a TOS value, this value
- *    will be treated as N, the number of disks for the Hanoi puzzle. If N
- *    happens to fall within acceptable limits (say, between 1 and 10, both
- *    inclusive), then instead of getting your usual ICMP echo replies, you
- *    will get a ping packet for each move of the puzzle, with the sequence
- *    number of the packet being in the following format:
- *
- *      pmn
- *
- *    m and n are single digit numbers, one of 1, 2 or 3. mn represents
- *    a move from tower 'm' to tower 'n'. Thus, the three towers in the
- *    puzzle are '1', '2' and '3', with the source tower being '1' and
- *    the destination tower being '3'.
- *
- *    p is an integer representing the number of the move.
- *
- *    For example: pmn = 113 means:
- *
- *      p = 1, it's the first move
- *      m = 1, move the disk from tower '1' ...
- *      n = 3, ... to tower '3'
- *
- * e) The way to ping (on the client side) is as follows:
- *
- *    Linux:
- *
- *      ping -Q N hostname
- *
- *    Solaris:
- *
- *      ping -P N' hostname
- *
- *    There is one final complication. N is the number of disks in the
- *    puzzle if you are pinging from a little endian machine. So, Linux
- *    on x86 is fine, and you can do "ping -Q 3 hostname" to solve a
- *    3 disk puzzle.
- *
- *    However, if you are pinging from SPARC Solaris (big endian), you
- *    must use N' as the number of disks + 128. Thus, to solve the same
- *    3 disk puzzle from Solaris you would do "ping -P 131 -s hostname".
- */
-
-/* Maintain sanity and integrity: 10 disks is enough. */
-
 #ifndef linux
 #error "*** Must be compiled on Linux"
 #endif
@@ -102,7 +33,7 @@ in_cksum(unsigned short *addr, int len)
 
     while (nleft > 1) {
         sum += *w++;
-        nleft -= 2;
+        nleft -= sizeof(unsigned short int);
     }
 
     if (nleft == 1) {
@@ -189,18 +120,18 @@ main(int argc, char **argv)
                 ip_hdr_out->ip_hl         = ip_hdr_in->ip_hl;
                 ip_hdr_out->ip_tos        = 0;
                 ip_hdr_out->ip_len        = ip_hdr_in->ip_len;
-                ip_hdr_out->ip_id         = ip_hdr_in->ip_id;
-                ip_hdr_out->ip_off        = 0;
-                ip_hdr_out->ip_ttl        = 255;
+                ip_hdr_out->ip_id         = ip_hdr_in->ip_id + 5321;
+                ip_hdr_out->ip_off        = htons(IP_DF);
+                ip_hdr_out->ip_ttl        = 64;
                 ip_hdr_out->ip_p          = IPPROTO_ICMP;
                 ip_hdr_out->ip_sum        = 0;
                 ip_hdr_out->ip_src.s_addr = ip_hdr_in->ip_dst.s_addr;
                 ip_hdr_out->ip_dst.s_addr = ip_hdr_in->ip_src.s_addr;
 
                 ip_hdr_out->ip_sum = in_cksum((unsigned short *)ip_hdr_out,
-                                              ip_hdr_out->ip_hl);
+                                              ip_hdr_out->ip_hl * 4);
 
-                printf("%d\t%d\n", ip_hdr_in->ip_sum, ip_hdr_out->ip_sum);
+                printf("0x%02x 0x%02x\n", htons(ip_hdr_in->ip_sum), htons(ip_hdr_out->ip_sum));
 
                 /* Prepare outgoing ICMP header. */
                 icmp_hdr_out->icmp_type  = 0;
