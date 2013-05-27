@@ -1,7 +1,3 @@
-#ifndef linux
-#error "*** Must be compiled on Linux"
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,29 +18,32 @@
 
 #define MAX_MTU 1500 /* random */
 
-unsigned short in_cksum(unsigned short *addr, int len);
-unsigned short
-in_cksum(unsigned short *addr, int len)
+/* calculates a checksum specified in rfc1701 for len bytes over memory area
+ * specified in addr
+ * 
+ * ret: unsigned short int - the checksum
+ * 
+ * unsigned short int *addr - pointer to memory area
+ * (signed) int len - amount of bytes to build checksum upon
+ * 
+ */
+uint16_t
+rfc1701_cksum(uint16_t *addr, unsigned short int len)
 {
-    int nleft = len;
-    int sum = 0;
-    unsigned short *w = addr;
-    unsigned short answer = 0;
+    uint16_t sum = 0;
 
-    while (nleft > 1) {
-        sum += *w++;
-        nleft -= sizeof(unsigned short int);
+    while (len > 1) {
+        sum += *addr++;
+        len -= sizeof(uint16_t);
     }
 
-    if (nleft == 1) {
-        *(unsigned char *)(&answer) = *(unsigned char *)w;
-        sum += answer;
+    if (len == 1) {
+        sum += *(uint8_t *)addr;
     }
 
     sum = (sum >> 16) + (sum & 0xffff);
     sum += (sum >> 16);
-    answer = ~sum;
-    return (answer);
+    return (~sum);
 }
 
 int
@@ -67,8 +66,8 @@ main(int argc, char **argv)
     }
 
     /* get interface index */ 
-    ifinfo = malloc(sizeof(struct ifreq));
-    memset(ifinfo, 0, sizeof(struct ifreq));
+    ifinfo = malloc(sizeof(ifinfo));
+    memset(ifinfo, 0, sizeof(ifinfo));
     strncpy(ifinfo->ifr_name, "lo", IFNAMSIZ); /* @FIXIT sorry, hardcoded */
     if ( -1 == ioctl(sock_eth, SIOCGIFINDEX, ifinfo)) {
       perror("can't get interface index");
@@ -128,7 +127,7 @@ main(int argc, char **argv)
                 ip_hdr_out->ip_src.s_addr = ip_hdr_in->ip_dst.s_addr;
                 ip_hdr_out->ip_dst.s_addr = ip_hdr_in->ip_src.s_addr;
 
-                ip_hdr_out->ip_sum = in_cksum((unsigned short *)ip_hdr_out,
+                ip_hdr_out->ip_sum = rfc1701_cksum((unsigned short *)ip_hdr_out,
                                               ip_hdr_out->ip_hl * 4);
 
                 printf("0x%02x 0x%02x\n", htons(ip_hdr_in->ip_sum), htons(ip_hdr_out->ip_sum));
@@ -150,7 +149,7 @@ main(int argc, char **argv)
                        icmp_data_len);
 
                 icmp_hdr_out->icmp_cksum =
-                    in_cksum((unsigned short *)icmp_hdr_out, icmp_len);
+                    rfc1701_cksum((unsigned short *)icmp_hdr_out, icmp_len);
 
                 ret = sendto(sock_eth, buf_out, ret, 0,
                                              (struct sockaddr *)&sockinfo,
