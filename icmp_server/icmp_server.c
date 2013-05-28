@@ -1,3 +1,14 @@
+/* how to compile:
+ * clang -o icmp_server icmp_server.c
+ *   OR
+ * gcc -o icmp_server icmp_server.c
+ *
+ * how to execute:
+ * sudo ./icmp_server
+ */
+
+#define __USE_MISC
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,29 +32,33 @@
 /* calculates a checksum specified in rfc1701 for len bytes over memory area
  * specified in addr
  * 
- * ret: unsigned short int - the checksum
+ * ret: unsigned 16bit int - the checksum
  * 
- * unsigned short int *addr - pointer to memory area
- * (signed) int len - amount of bytes to build checksum upon
+ * unsigned 16bit int *addr - pointer to memory area
+ * unsigned short int len - amount of bytes to build checksum upon
  * 
  */
 uint16_t
 rfc1701_cksum(uint16_t *addr, unsigned short int len)
 {
-    uint16_t sum = 0;
+    /* we need a 32bit int for the carry over */
+    uint32_t sum = 0;
 
+    /* first we sum up all words */
     while (len > 1) {
         sum += *addr++;
         len -= sizeof(uint16_t);
     }
 
+    /* if we have a byte left, we sum it up too */
     if (len == 1) {
         sum += *(uint8_t *)addr;
     }
 
+    /* the first nibble is the carry over and we add it to the lower word */
     sum = (sum >> 16) + (sum & 0xffff);
-    sum += (sum >> 16);
-    return (~sum);
+    /* lastly we flip all bits and return the lower word */
+    return ((uint16_t) ~sum);
 }
 
 int
@@ -66,9 +81,9 @@ main(int argc, char **argv)
     }
 
     /* get interface index */ 
-    ifinfo = malloc(sizeof(ifinfo));
-    memset(ifinfo, 0, sizeof(ifinfo));
-    strncpy(ifinfo->ifr_name, "lo", IFNAMSIZ); /* @FIXIT sorry, hardcoded */
+    ifinfo = malloc(sizeof(struct ifreq));
+    memset(ifinfo, 0, sizeof(struct ifreq));
+    strncpy(ifinfo->ifr_name, "p3p1", IFNAMSIZ); /* @FIXIT sorry, hardcoded */
     if ( -1 == ioctl(sock_eth, SIOCGIFINDEX, ifinfo)) {
       perror("can't get interface index");
       exit(EXIT_FAILURE);
